@@ -68,7 +68,7 @@ func run(arguments []string) error {
 	flags.StringVar(&config.DonationOrigin, "donation-origin", config.DonationOrigin, "捐献页面的 HTTPS 站点源，不含路径")
 	keyEnvironment := flags.String("api-key-env", "", "直接使用此环境变量中的 API Key，不将值写入磁盘")
 	keyStdin := flags.Bool("api-key-stdin", false, "从标准输入读取 API Key，保存到私有凭据文件")
-	installIwan := flags.Bool("install-iwan", false, "下载并校验固定版本的第三方 iWAN 命令行客户端")
+	installIwan := flags.Bool("install-iwan", false, "下载并校验第三方 iWAN 命令行客户端的最新稳定版")
 	noBrowser := flags.Bool("no-browser", false, "只输出官方登录链接，不自动打开浏览器")
 	callbackPort := flags.Int("callback-port", 0, "浏览器本机回调端口（默认随机；远程主机需 SSH 转发）")
 	accountPath := flags.String("account", "", "models 命令使用的特定凭据文件")
@@ -102,13 +102,17 @@ func run(arguments []string) error {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 	defer cancel()
 	if command == "install-iwan" || *installIwan {
-		fmt.Fprintln(os.Stderr, "安装第三方 ustc-iwan", setup.IwanRelease, "（验证 GitHub SHA-256，不需要 root）")
+		fmt.Fprintln(os.Stderr, "安装第三方 ustc-iwan 最新稳定版（验证 GitHub SHA-256，不需要 root）")
 		config.IwanBinary, err = setup.InstallIwan(ctx, config.StateDir)
 		if err != nil {
 			return err
 		}
 		if command == "install-iwan" {
-			return saveSettings(config)
+			if err = saveSettings(config); err != nil {
+				return err
+			}
+			fmt.Fprintln(os.Stderr, "请运行 cpa-ustc iwan-login 重新获取线路配置。")
+			return nil
 		}
 	}
 	service := ustc.NewService(config)

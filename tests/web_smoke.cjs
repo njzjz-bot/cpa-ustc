@@ -78,6 +78,14 @@ const { chromium } = require(process.env.CPA_USTC_PLAYWRIGHT_MODULE || "playwrig
     assert.equal(await row.getByText(/未展示部分状态未知/).count(), 2);
     assert(!(await row.textContent()).includes("24h"));
     await page.unroute(quotaURL);
+    await page.route(quotaURL, (route) => route.fulfill({
+      status: 401,
+      json: { code: "quota_fetch_failed", error: "词元计划登录已失效，请重新添加科大账号" },
+    }));
+    await row.getByRole("button", { name: "查询额度", exact: true }).click();
+    await row.getByText(/请重新添加科大账号/).waitFor();
+    assert(!(await row.textContent()).includes("管理密钥无效"));
+    await page.unroute(quotaURL);
     await row.getByRole("button", { name: "禁用", exact: true }).click();
     await row.getByRole("button", { name: "启用", exact: true }).waitFor();
     await row.getByRole("button", { name: "启用", exact: true }).click();

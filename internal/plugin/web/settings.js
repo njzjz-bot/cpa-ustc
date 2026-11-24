@@ -29,7 +29,9 @@
     const data = await response.json().catch(() => ({}));
     if (version !== connectionVersion) throw new Error("管理连接已改变，请重试");
     if (!response.ok) {
-      const error = new Error(response.status === 401 || response.status === 403
+      const managementAuthFailed = (response.status === 401 || response.status === 403)
+        && data.code !== "quota_fetch_failed";
+      const error = new Error(managementAuthFailed
         ? "CPA 管理密钥无效或不允许此地址管理"
         : typeof data.error === "string" ? data.error : `请求失败（HTTP ${response.status}）`);
       error.status = response.status;
@@ -194,7 +196,7 @@
         element("iwan-callback").value = "";
         if (data.binary) {
           element("settings-form").elements.namedItem("iwan-binary").value = data.binary;
-          notify("客户端已安装；请点击“保存设置”应用新路径，再登录 iWAN。");
+          notify("客户端已安装；请点击“保存设置”应用新路径，再点“登录 / 更新 iWAN”重新获取线路配置。");
         } else await loadSettings();
       } else if (data.status === "error") notify(data.message, true);
     } catch (error) { notify(error.message, true); }
@@ -269,7 +271,7 @@
     await pollIwan();
   });
   bind("iwan-install", "click", async () => {
-    if (!window.confirm("安装非官方第三方 ustc-iwan v26.9.1 客户端？下载后将校验发布附件的 SHA-256，不修改系统 VPN。")) return;
+    if (!window.confirm("安装或更新到第三方 ustc-iwan 的最新稳定版？下载后将校验发布附件的 SHA-256，不修改系统 VPN。")) return;
     await api(pluginAPI + "iwan/install", "POST", {});
     clearTimeout(iwanTimer);
     await pollIwan();

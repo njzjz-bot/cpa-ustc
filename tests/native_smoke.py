@@ -408,7 +408,7 @@ class NativeSmoke(unittest.TestCase):
                     quota_path = "/v8/management/plugins/ustc/quota"
                     with self.assertRaises(urllib.error.HTTPError) as unsupported:
                         opener.open(request(quota_path, {"auth_index": credential["auth_index"]}), timeout=5)
-                    self.assertEqual(unsupported.exception.code, 502)
+                    self.assertIn(unsupported.exception.code, (501, 502))  # New and legacy CPA hosts.
                     error = json.load(unsupported.exception)["error"]
                     self.assertIn("统一认证", error)
                     self.assertNotIn("native-test-key", error)

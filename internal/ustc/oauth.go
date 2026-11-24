@@ -353,7 +353,15 @@ func (service *Service) token(ctx context.Context, endpoint string, values url.V
 		return tokenResponse{}, errors.New("科大令牌请求失败")
 	}
 	defer response.Body.Close()
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
+		if response.StatusCode == http.StatusBadRequest && values.Get("grant_type") == "refresh_token" {
+			var failure struct {
+				Error string `json:"error"`
+			}
+			if json.NewDecoder(io.LimitReader(response.Body, 64<<10)).Decode(&failure) == nil && failure.Error == "invalid_grant" {
+				return tokenResponse{}, &StatusError{Status: http.StatusUnauthorized, Message: "词元计划登录已失效，请重新添加科大账号"}
+			}
+		}
 		return tokenResponse{}, responseStatusError(response, "科大令牌请求被拒绝，请重新登录")
 	}
 	var token tokenResponse
@@ -401,7 +409,7 @@ func (service *Service) identityAccount(ctx context.Context, document discovery,
 
 func (service *Service) refresh(ctx context.Context, account Account) (Account, error) {
 	if account.RefreshToken == "" {
-		return account, errors.New("科大登录已过期，请重新运行 cpa-ustc setup")
+		return account, &StatusError{Status: http.StatusUnauthorized, Message: "词元计划登录已过期，请重新添加科大账号"}
 	}
 	document, err := service.discover(ctx)
 	if err != nil {

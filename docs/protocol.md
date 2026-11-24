@@ -135,7 +135,7 @@ v0.1.4 商店审查修复移除了全部 `/v0/resource/plugins/ustc/donate*` 路
 
 [官方说明](https://mail.ustc.edu.cn/notice/iwan/)指出，客户域为 `iwan.ustc`，使用科大统一身份认证；隧道使用 UDP，常见端口为 6001/6002。官方客户端正常提供通路时无需重复安装第三方客户端。
 
-本插件不重新实现 iWAN UDP 数据面，显式复用第三方 [ustc-iwan](https://github.com/yyy1mu/ustc-iwan)；对照提交 `d62318c2161d3299ae6f23e7f40899260f10e79a`，安装固定 release `v26.9.1`。调用只通过参数数组，不经过 shell：
+本插件不重新实现 iWAN UDP 数据面，显式复用第三方 [ustc-iwan](https://github.com/yyy1mu/ustc-iwan)；安装时查询 GitHub 的最新稳定版并校验对应平台附件的 SHA-256。已验证 `v26.11.1` 会保留服务端下发的 salt 和 MTU；从旧版升级后需要重新授权以刷新缓存。运行时不会自动下载或更新客户端。调用只通过参数数组，不经过 shell：
 
 ```text
 iwan-client-oidc --fetch --config-dir <state>/iwan
