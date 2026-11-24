@@ -10,6 +10,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -19,8 +20,7 @@ import (
 	"cpa-ustc/internal/ustc"
 )
 
-// IwanRelease pins the independently maintained userspace helper reviewed for this release.
-const IwanRelease = "v26.9.1"
+const iwanRepository = "yyy1mu/ustc-iwan"
 
 // InstallIwan requires explicit invocation and verifies GitHub's SHA-256 asset digest.
 // No root, shell scripts, system VPN changes or fallback to unsigned assets are used.
@@ -35,8 +35,11 @@ func InstallIwan(ctx context.Context, stateDir string) (string, error) {
 		assetName += "-musl"
 	}
 	assetName += ".zip"
-	client := &http.Client{Timeout: 2 * time.Minute}
-	request, _ := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/repos/yyy1mu/ustc-iwan/releases/tags/"+IwanRelease, nil)
+	return installIwan(ctx, stateDir, platform, assetName, &http.Client{Timeout: 2 * time.Minute})
+}
+
+func installIwan(ctx context.Context, stateDir, platform, assetName string, client *http.Client) (string, error) {
+	request, _ := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/repos/"+iwanRepository+"/releases/latest", nil)
 	request.Header.Set("Accept", "application/vnd.github+json")
 	request.Header.Set("User-Agent", "cpa-ustc/"+ustc.Version)
 	response, err := client.Do(request)
@@ -45,23 +48,27 @@ func InstallIwan(ctx context.Context, stateDir string) (string, error) {
 	}
 	defer response.Body.Close()
 	var release struct {
-		Assets []struct {
+		Tag        string `json:"tag_name"`
+		Draft      bool   `json:"draft"`
+		Prerelease bool   `json:"prerelease"`
+		Assets     []struct {
 			Name   string `json:"name"`
 			URL    string `json:"browser_download_url"`
 			Digest string `json:"digest"`
 		} `json:"assets"`
 	}
-	if response.StatusCode != 200 || json.NewDecoder(io.LimitReader(response.Body, 2<<20)).Decode(&release) != nil {
-		return "", errors.New("无法读取 iWAN 发布信息（可能触发 GitHub 频率限制）")
+	if response.StatusCode != http.StatusOK || json.NewDecoder(io.LimitReader(response.Body, 2<<20)).Decode(&release) != nil || release.Tag == "" || release.Draft || release.Prerelease {
+		return "", errors.New("无法读取 iWAN 最新稳定版发布信息（可能触发 GitHub 频率限制）")
 	}
+	downloadURL := "https://github.com/" + iwanRepository + "/releases/download/" + url.PathEscape(release.Tag) + "/" + assetName
 	for _, asset := range release.Assets {
 		if asset.Name != assetName {
 			continue
 		}
-		if !strings.HasPrefix(asset.Digest, "sha256:") || len(asset.Digest) != 71 || !strings.HasPrefix(asset.URL, "https://github.com/yyy1mu/ustc-iwan/releases/download/"+IwanRelease+"/") {
+		if !strings.HasPrefix(asset.Digest, "sha256:") || len(asset.Digest) != 71 || asset.URL != downloadURL {
 			return "", errors.New("iWAN 附件缺少可信 SHA-256 摘要或来源不匹配，拒绝安装")
 		}
-		request, _ = http.NewRequestWithContext(ctx, http.MethodGet, asset.URL, nil)
+		request, _ = http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
 		archive, downloadErr := client.Do(request)
 		if downloadErr != nil {
 			return "", errors.New("iWAN 附件下载失败")

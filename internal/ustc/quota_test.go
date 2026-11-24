@@ -218,6 +218,30 @@ func TestQuotaAccountIsolationAndCancellation(t *testing.T) {
 	}
 }
 
+func TestQuotaRejectedRefreshRequiresReauthorization(t *testing.T) {
+	fixture := newIdentity(t)
+	fixture.service.identity.Transport = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if request.URL.Path != "/oidc/token" {
+			return fixture.handle(request)
+		}
+		if err := request.ParseForm(); err != nil || request.Form.Get("grant_type") != "refresh_token" {
+			t.Fatalf("expected refresh token exchange, got %v", err)
+		}
+		response := jsonResponse(map[string]string{"error": "invalid_grant", "error_description": "never-print-this-token"})
+		response.StatusCode = http.StatusBadRequest
+		return response, nil
+	})
+	account := oauthAccount()
+	_, updated, err := fixture.service.FetchQuota(context.Background(), account)
+	var status *StatusError
+	if !errors.As(err, &status) || status.Status != http.StatusUnauthorized || !strings.Contains(status.Message, "重新添加科大账号") {
+		t.Fatalf("expected reauthorization error, got %v", err)
+	}
+	if strings.Contains(err.Error(), "never-print-this-token") || updated.RefreshToken != account.RefreshToken {
+		t.Fatal("rejected refresh leaked upstream details or changed the stored token")
+	}
+}
+
 func TestQuotaRefreshSharedWithInference(t *testing.T) {
 	fixture := newIdentity(t)
 	body := usageFixture(t)

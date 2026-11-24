@@ -235,3 +235,35 @@ func TestRelaySSEPreservesEventsAndReportsErrors(testContext *testing.T) {
 		testContext.Fatalf("host cancellation lost: %v", err)
 	}
 }
+
+func TestAPIKeyModelsRetainOptionalLimits(t *testing.T) {
+	config := DefaultConfig()
+	config.Network = "direct"
+	service := NewService(config)
+	t.Cleanup(service.Close)
+	service.apiClient = func(string) *http.Client {
+		return &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+			return jsonResponse(map[string]any{"data": []map[string]any{
+				{"id": "advertised", "max_input_tokens": 1000000, "max_output_tokens": 393216},
+				{"id": "unspecified"},
+				{"id": "invalid", "max_input_tokens": []int{1}, "max_output_tokens": -1},
+			}}), nil
+		})}
+	}
+	account, err := APIAccount("test-key", "", config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	models, _, err := service.Models(context.Background(), account)
+	if err != nil || len(models) != 3 {
+		t.Fatalf("wrong model list: %+v, %v", models, err)
+	}
+	if models[0].Context != 1000000 || models[0].Output != 393216 {
+		t.Fatalf("advertised limits dropped: %+v", models[0])
+	}
+	for _, model := range models[1:] {
+		if model.Context != 0 || model.Output != 0 {
+			t.Fatalf("unknown limits should be omitted: %+v", model)
+		}
+	}
+}

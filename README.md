@@ -87,7 +87,7 @@ Linux 产物为 `dist/cpa-ustc` 和 `dist/ustc.so`；macOS 动态库为 `ustc.dy
 ./dist/cpa-ustc setup --install-iwan --cpa-config /path/to/CLIProxyAPI/config.yaml
 ```
 
-`--install-iwan` **显式安装第三方** [ustc-iwan](https://github.com/yyy1mu/ustc-iwan) 的固定版本 `v26.9.1`，校验 GitHub 发布附件的 SHA-256；缺少摘要则拒绝安装。只安装到用户状态目录，不需要 root。已有客户端可用 `--iwan-bin /path/to/iwan-client-oidc` 指定，无需下载。
+`--install-iwan` **显式安装第三方** [ustc-iwan](https://github.com/yyy1mu/ustc-iwan) 的最新稳定版，校验 GitHub 发布附件的 SHA-256；缺少摘要则拒绝安装。只安装到用户状态目录，不需要 root。已有客户端可用 `--iwan-bin /path/to/iwan-client-oidc` 指定，无需下载。从旧版升级后请重新执行 `cpa-ustc iwan-login`（网页端先保存新路径，再点「登录 / 更新 iWAN」），以获取旧版未保存的线路认证参数。
 
 **供应链信任**：摘要校验只确认下载内容与发布方提供的附件一致，不能证明第三方代码安全，也不能防止发布方账号或构建链被入侵。该程序以当前用户权限执行并接触 iWAN 会话；仅在信任其维护者、审查来源后显式安装。可改用已连接的官方客户端，或由管理员审查并预安装所需二进制。
 

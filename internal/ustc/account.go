@@ -350,7 +350,9 @@ func (service *Service) Models(ctx context.Context, account Account) ([]Model, A
 	}
 	var list struct {
 		Data []struct {
-			ID string `json:"id"`
+			ID     string          `json:"id"`
+			Input  json.RawMessage `json:"max_input_tokens"`
+			Output json.RawMessage `json:"max_output_tokens"`
 		} `json:"data"`
 	}
 	if err = json.NewDecoder(io.LimitReader(response.Body, 2<<20)).Decode(&list); err != nil {
@@ -359,7 +361,12 @@ func (service *Service) Models(ctx context.Context, account Account) ([]Model, A
 	models := make([]Model, 0, len(list.Data))
 	for _, model := range list.Data {
 		if model.ID != "" {
-			models = append(models, Model{ID: model.ID, Name: model.ID})
+			// Some school models omit limits. Ignore invalid optional metadata
+			// without dropping the model or guessing a limit.
+			var input, output int64
+			_ = json.Unmarshal(model.Input, &input)
+			_ = json.Unmarshal(model.Output, &output)
+			models = append(models, Model{ID: model.ID, Name: model.ID, Context: max(0, input), Output: max(0, output)})
 		}
 	}
 	return models, updated, nil
