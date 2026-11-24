@@ -10,9 +10,15 @@ import (
 	"time"
 )
 
+// CompletionResponse carries the validation required by a translated request.
+type CompletionResponse struct {
+	*http.Response
+	jsonObject bool
+}
+
 // Execute sends only translated chat-completions payloads and plugin-owned headers.
 // Stream bodies remain live; ownership passes to the caller, which must close them.
-func (service *Service) Execute(ctx context.Context, account Account, model string, payload []byte, stream bool) (*http.Response, Account, error) {
+func (service *Service) Execute(ctx context.Context, account Account, model string, payload []byte, stream bool) (*CompletionResponse, Account, error) {
 	if err := account.Validate(); err != nil {
 		return nil, account, err
 	}
@@ -32,6 +38,7 @@ func (service *Service) Execute(ctx context.Context, account Account, model stri
 	}
 	body["model"], _ = json.Marshal(model)
 	body["stream"], _ = json.Marshal(stream)
+	jsonObject := adaptDeepSeekJSONObject(gateway.Base, model, body)
 	data, _ := json.Marshal(body)
 	proxy, err := service.Network.Proxy(ctx)
 	if err != nil {
@@ -61,7 +68,7 @@ func (service *Service) Execute(ctx context.Context, account Account, model stri
 		return nil, updated, service.RecordInferenceError(account, upstream)
 	}
 	response.Body = &ownedBody{ReadCloser: response.Body, client: client}
-	return response, updated, nil
+	return &CompletionResponse{Response: response, jsonObject: jsonObject}, updated, nil
 }
 
 type ownedBody struct {

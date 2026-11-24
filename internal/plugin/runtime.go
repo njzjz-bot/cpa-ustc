@@ -381,6 +381,9 @@ func (runtime *Runtime) execute(parent context.Context, service *ustc.Service, r
 		if upstream := ustc.InferenceError(body, response.Header); upstream != nil {
 			return nil, service.RecordInferenceError(account, upstream)
 		}
+		if validationErr := response.ValidateContent(body); validationErr != nil {
+			return nil, validationErr
+		}
 		return map[string]any{"Payload": body, "Headers": safeHeaders(response.Header)}, nil
 	}
 	if !strings.HasPrefix(strings.ToLower(response.Header.Get("Content-Type")), "text/event-stream") {
@@ -407,7 +410,7 @@ func (runtime *Runtime) execute(parent context.Context, service *ustc.Service, r
 			}
 			_ = runtime.Host("host.stream.close", result, nil)
 		}()
-		streamErr = ustc.RelaySSE(response.Body, response.Header, func(payload []byte) error {
+		streamErr = response.Relay(func(payload []byte) error {
 			return runtime.Host("host.stream.emit", map[string]any{"stream_id": request.StreamID, "payload": payload}, nil)
 		})
 		streamErr = service.RecordInferenceError(account, streamErr)

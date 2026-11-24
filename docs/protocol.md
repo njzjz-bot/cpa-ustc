@@ -30,6 +30,10 @@
 
 宿主要求 `GitHubRepository` 非空；默认填写本项目源码仓库 `https://github.com/njzjz/cpa-ustc`，从 fork 构建时可通过 `REPOSITORY` 参数指定对应仓库，不冒充 CPA 或学校官方项目。
 
+### DeepSeek JSON 对象兼容
+
+科大网关的 `deepseek-flash` 在开启 thinking（包括默认开启）且使用 `response_format.type=json_object` 时可能将答案放进思考字段，正文为空。仅对该模型和参数组合，以系统 JSON 格式指令替换上游的 JSON mode，保留 thinking 和其他请求参数。插件仅校验正文，不从思考字段提取答案。流式片段仍增量原样转发；正常结束时校验完整正文，不完整或不是一个 JSON 对象时报告结构化错误。工具调用、拒答和明确的长度截断仍沿用原结束语义。显式关闭 thinking、`json_schema` 和其他模型不改写。
+
 ### 网页与号池接入
 
 声明 `management_api`，通过 `management.register` 的 `resources` 注册 `/settings` 菜单及 JS / CSS。CPA 将菜单暴露在 `/v0/resource/plugins/ustc/settings`，无需修改宿主源码或额外 Web 服务。采用 **RPC schema 6**：此前版本会对管理响应 JSON 的字符串进行 HTML 实体转义，会破坏 OAuth URL 中的 `&` 和账号备注，因此不能沿用 schema 1。C ABI 仍为 1。

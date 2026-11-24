@@ -55,7 +55,7 @@ func RelaySSE(source io.Reader, headers http.Header, emit func([]byte) error) er
 	}
 }
 
-func sseError(event []byte, headers http.Header) *StatusError {
+func ssePayload(event []byte) ([]byte, bool) {
 	var data []byte
 	errorEvent := false
 	for _, line := range bytes.Split(event, []byte("\n")) {
@@ -68,6 +68,11 @@ func sseError(event []byte, headers http.Header) *StatusError {
 			errorEvent = bytes.Equal(bytes.TrimSpace(line[6:]), []byte("error"))
 		}
 	}
+	return data, errorEvent
+}
+
+func sseError(event []byte, headers http.Header) *StatusError {
+	data, errorEvent := ssePayload(event)
 	if err := InferenceError(data, headers); err != nil {
 		return err
 	}
